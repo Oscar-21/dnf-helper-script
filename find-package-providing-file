@@ -1,25 +1,37 @@
 #!/bin/bash
 
+if [ $# -ne 1 ]
+  then
+    echo
+    echo "Usage: ./find-package-providing-file <dependency>"
+    echo
+    exit 1
+fi
+# This is used to change the color of the certain keywords displayed in the terminal
 text_reset=$(tput sgr0) # reset the forground color
 red=$(tput setaf 2)
 
-DEPENDENCY=$1
+# This is the file we would like to find a providing package for
+DEPENDENCY=$1 
+# Used for error handling
 START_STRING=""
 
+
 PACKAGES="${START_STRING}$(dnf --assumeyes repoquery --whatprovides "*/${DEPENDENCY}" --queryformat %{name}  2>/dev/null)" \
-|| { echo "Failed to query dnf for packages that provide ${DEPENDENCY}"; exit 1; }
+|| { echo && echo "Failed to query dnf for packages that provide ${DEPENDENCY}" && echo; exit 1; }
 [ "${PACKAGES}x" == "x" ] && { echo "There are no packages providing '${DEPENDENCY}'"; exit 1; }
 
 for package in ${PACKAGES}; do
     unset _providing_packages
-    _providing_packages="${START_STRING}$(dnf --assumeyes repoquery --whatrequires "${package}" --queryformat %{name} 2>/dev/null)" || { echo "Failed to find packages providing ${package}"; exit 1; }
-    [ "${_providing_packages}x" == "x" ] && { echo "There aro no packages that require ${package} as a dependency"; exit 1; }
+    _providing_packages="${START_STRING}$(dnf --assumeyes repoquery --whatrequires "${package}" --queryformat %{name} 2>/dev/null)" \
+    || { echo "Failed to find packages providing ${package}"; exit 1; }
+    [ "${_providing_packages}x" == "x" ] && { echo "You can install ${package} to gain access to ${DEPENDENCY}"; continue; }
     for providing_package in ${_providing_packages}; do
       echo
       printf "    %s provides %s. You can install it, however," "${red}${package}${text_reset}" "${red}${DEPENDENCY}${text_reset}"
-      printf "    \n    %s will also install %s\n    as a dependency, so you may want to install %s\n    instead, as it likely has other dependencies your programs require." "${red}${providing_package}${text_reset}" "${red}${package}${text_reset}" "${red}${providing_package}${text_reset}";
+      printf "    \n    %s will also install %s\n    as a dependency, so you may want to install %s\n"  "${red}${providing_package}${text_reset}" "${red}${package}${text_reset}" "${red}${providing_package}${text_reset}";
+      echo "    instead, as it likely has other dependencies your programs require."
       echo;
       echo
     done
 done
-
